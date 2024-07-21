@@ -23,14 +23,16 @@ func main() {
 	defer ch.Close()
 	FatalOnError(err)
 
+	FatalOnError(err)
+
 	err = ch.ExchangeDeclare(env.ImageExchange, "topic", true, false, false, false, nil)
 	FatalOnError(err)
 
 	q, err := ch.QueueDeclare(env.QueueName, true, false, false, false, nil)
 	FatalOnError(err)
 
-	for _, t := range env.ScrapTopics {
-		err = ch.QueueBind(q.Name, "scrap."+t, env.ImageExchange, false, nil)
+	for _, query := range env.ScrapTopics {
+		err = ch.QueueBind(q.Name, "scrap."+query, env.ImageExchange, false, nil)
 		FatalOnError(err)
 	}
 
@@ -39,6 +41,7 @@ func main() {
 		Secure: false,
 	})
 	FatalOnError(err)
+
 	err = minioClient.MakeBucket(context.Background(), "images", minio.MakeBucketOptions{})
 	if err != nil {
 		exists, errBucketExists := minioClient.BucketExists(context.Background(), "images")
@@ -49,7 +52,7 @@ func main() {
 		}
 	}
 	c := make(chan bool)
-	saver := service.NewSaver(minioClient, logger, ch, env.QueueName, "images")
+	saver := service.NewSaver(minioClient, logger, ch, env.QueueName, env.ImageExchange)
 	if err := saver.Setup(); err != nil {
 		log.Fatal(err)
 	}

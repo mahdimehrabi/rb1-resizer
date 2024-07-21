@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/rabbitmq/amqp091-go"
@@ -45,17 +46,20 @@ func (s *Saver) Worker() {
 	for msg := range s.queue {
 		url, err := entity.FromJSON(msg.Body)
 		if err != nil {
-			s.logger.Error("Error:%s", err.Error())
+			msg.Nack(false, false)
+			s.logger.Error(fmt.Sprintf("Invalid json:%s", err.Error()))
 			return
 		}
+
 		content, err := util.DownloadImage(url.URL)
 		if err != nil {
 			if err := msg.Nack(false, false); err != nil {
 				s.logger.Error("failed to nack", err.Error())
 			}
-			s.logger.Error("Error:%s", err.Error())
+			s.logger.Error("Error failed to download:%s", err.Error())
 			return
 		}
+
 		reader := bytes.NewReader(content)
 		id := uuid.New().String()
 		_, err = s.minC.PutObject(context.Background(), "images", id, reader, int64(reader.Len()), minio.PutObjectOptions{})
@@ -66,17 +70,20 @@ func (s *Saver) Worker() {
 			s.logger.Error("failed to save", err.Error())
 			return
 		}
+
 		if err := msg.Ack(false); err != nil {
 			s.logger.Error("failed to ack", err.Error())
-			if err := s.minC.RemoveObject(context.Background(), "images", id, minio.RemoveObjectOptions{}); err != nil {
+			if err := s.minC.RemoveObject(context.Background(), "images.#", id, minio.RemoveObjectOptions{}); err != nil {
 				s.logger.Error("failed to remove object", err.Error())
 			}
 			return
 		}
+
 		err = s.ch.Publish(s.exchange, "downloaded."+url.Query, false, false, amqp091.Publishing{
 			Body:        []byte(id),
 			ContentType: "text/plain",
 		})
+
 		if err != nil {
 			if err := s.minC.RemoveObject(context.Background(), "images", id, minio.RemoveObjectOptions{}); err != nil {
 				s.logger.Error("failed to remove object", err.Error())
