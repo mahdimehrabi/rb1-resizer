@@ -12,20 +12,31 @@ import (
 )
 
 type Saver struct {
-	minC   *minio.Client
-	queue  <-chan amqp091.Delivery
-	logger *slog.Logger
+	minC      *minio.Client
+	queue     <-chan amqp091.Delivery
+	logger    *slog.Logger
+	ch        *amqp091.Channel
+	queueName string
 }
 
-func NewSaver(minC *minio.Client, logger *slog.Logger) *Saver {
+func NewSaver(minC *minio.Client, logger *slog.Logger, ch *amqp091.Channel, queueName string) *Saver {
 	s := &Saver{
-		minC:   minC,
-		logger: logger,
+		minC:      minC,
+		logger:    logger,
+		ch:        ch,
+		queueName: queueName,
 	}
+
 	for range 50 {
 		go s.Worker()
 	}
 	return s
+}
+
+func (s *Saver) Setup() error {
+	deliveries, err := s.ch.Consume(s.queueName, "", false, false, false, false, nil)
+	s.queue = deliveries
+	return err
 }
 
 func (s *Saver) Worker() {
@@ -38,17 +49,15 @@ func (s *Saver) Worker() {
 				s.logger.Error("failed to nack", err.Error())
 			}
 			s.logger.Error("failed to save", err.Error())
+			return
 		}
 		if err := msg.Ack(false); err != nil {
 			s.logger.Error("failed to ack", err.Error())
 			if err := s.minC.RemoveObject(context.Background(), "images", id, minio.RemoveObjectOptions{}); err != nil {
 				s.logger.Error("failed to remove object", err.Error())
+				return
 			}
 		}
 		fmt.Println("saved successfully", time.Now().UnixNano())
 	}
-}
-
-func (s *Saver) SetDelivery(delivery <-chan amqp091.Delivery) {
-	s.queue = delivery
 }

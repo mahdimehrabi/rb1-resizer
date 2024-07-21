@@ -33,8 +33,6 @@ func main() {
 		FatalOnError(err)
 	}
 
-	deliveries, err := ch.Consume(q.Name, "", false, false, false, false, nil)
-	FatalOnError(err)
 	minioClient, err := minio.New(env.MinioHost, &minio.Options{
 		Creds:  credentials.NewStaticV4(env.MinioAccessToken, env.MinioSecret, ""),
 		Secure: false,
@@ -50,8 +48,10 @@ func main() {
 		}
 	}
 	c := make(chan bool)
-	saver := service.NewSaver(minioClient, logger)
-	saver.SetDelivery(deliveries)
+	saver := service.NewSaver(minioClient, logger, ch, env.QueueName)
+	if err := saver.Setup(); err != nil {
+		log.Fatal(err)
+	}
 	<-c
 }
 
