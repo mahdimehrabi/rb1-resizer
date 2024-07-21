@@ -62,7 +62,7 @@ func (s *Saver) Worker() {
 
 		reader := bytes.NewReader(content)
 		id := uuid.New().String()
-		_, err = s.minC.PutObject(context.Background(), "images", id, reader, int64(reader.Len()), minio.PutObjectOptions{})
+		_, err = s.minC.PutObject(context.Background(), "image-resize", id, reader, int64(reader.Len()), minio.PutObjectOptions{})
 		if err != nil {
 			if err := msg.Nack(false, false); err != nil {
 				s.logger.Error("failed to nack", err.Error())

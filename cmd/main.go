@@ -42,9 +42,9 @@ func main() {
 	})
 	FatalOnError(err)
 
-	err = minioClient.MakeBucket(context.Background(), "images", minio.MakeBucketOptions{})
+	err = minioClient.MakeBucket(context.Background(), "image-resize", minio.MakeBucketOptions{})
 	if err != nil {
-		exists, errBucketExists := minioClient.BucketExists(context.Background(), "images")
+		exists, errBucketExists := minioClient.BucketExists(context.Background(), "image-resize")
 		if errBucketExists == nil && exists {
 			logger.Info("we already have a bucket named %s", env.ImageExchange)
 		} else {
