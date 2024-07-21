@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/rabbitmq/amqp091-go"
@@ -19,16 +18,17 @@ type Saver struct {
 	logger    *slog.Logger
 	ch        *amqp091.Channel
 	queueName string
+	exchange  string
 }
 
-func NewSaver(minC *minio.Client, logger *slog.Logger, ch *amqp091.Channel, queueName string) *Saver {
+func NewSaver(minC *minio.Client, logger *slog.Logger, ch *amqp091.Channel, queueName string, exchange string) *Saver {
 	s := &Saver{
 		minC:      minC,
 		logger:    logger,
 		ch:        ch,
 		queueName: queueName,
+		exchange:  exchange,
 	}
-
 	return s
 }
 
@@ -50,6 +50,9 @@ func (s *Saver) Worker() {
 		}
 		content, err := util.DownloadImage(url.URL)
 		if err != nil {
+			if err := msg.Nack(false, false); err != nil {
+				s.logger.Error("failed to nack", err.Error())
+			}
 			s.logger.Error("Error:%s", err.Error())
 			return
 		}
@@ -70,6 +73,20 @@ func (s *Saver) Worker() {
 			}
 			return
 		}
-		fmt.Println("saved successfully", time.Now().UnixNano())
+		err = s.ch.Publish(s.exchange, "resize."+url.Query, false, false, amqp091.Publishing{
+			Body:        []byte(id),
+			ContentType: "text/plain",
+		})
+		if err != nil {
+			if err := s.minC.RemoveObject(context.Background(), "images", id, minio.RemoveObjectOptions{}); err != nil {
+				s.logger.Error("failed to remove object", err.Error())
+			}
+			if err := msg.Nack(false, false); err != nil {
+				s.logger.Error("failed to nack", err.Error())
+			}
+			s.logger.Error("failed to publish", err.Error())
+			return
+		}
+		s.logger.Info("saved successfully", time.Now().UnixNano())
 	}
 }

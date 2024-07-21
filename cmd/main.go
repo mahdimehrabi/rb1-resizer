@@ -20,6 +20,7 @@ func main() {
 	FatalOnError(err)
 	defer ampqConn.Close()
 	ch, err := ampqConn.Channel()
+	defer ch.Close()
 	FatalOnError(err)
 
 	err = ch.ExchangeDeclare(env.ImageExchange, "topic", true, false, false, false, nil)
@@ -48,7 +49,7 @@ func main() {
 		}
 	}
 	c := make(chan bool)
-	saver := service.NewSaver(minioClient, logger, ch, env.QueueName)
+	saver := service.NewSaver(minioClient, logger, ch, env.QueueName, "images")
 	if err := saver.Setup(); err != nil {
 		log.Fatal(err)
 	}
