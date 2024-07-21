@@ -33,7 +33,7 @@ func main() {
 		FatalOnError(err)
 	}
 
-	msgs, err := ch.Consume(q.Name, "", false, false, false, false, nil)
+	deliveries, err := ch.Consume(q.Name, "", false, false, false, false, nil)
 	FatalOnError(err)
 	minioClient, err := minio.New(env.MinioHost, &minio.Options{
 		Creds:  credentials.NewStaticV4(env.MinioAccessToken, env.MinioSecret, ""),
@@ -49,21 +49,10 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-
-	saver := service.NewSaver(minioClient)
-	for msg := range msgs {
-		if err := saver.Download(msg.Body); err != nil {
-			logger.Error("error downloading", err.Error())
-			err = msg.Nack(false, false)
-			if err != nil {
-				logger.Error("error nacking", err.Error())
-			}
-			continue
-		}
-		logger.Info("downloaded successfully")
-		err = msg.Ack(false)
-		FatalOnError(err)
-	}
+	c := make(chan bool)
+	saver := service.NewSaver(minioClient, logger)
+	saver.SetDelivery(deliveries)
+	<-c
 }
 
 func FatalOnError(err error) {
