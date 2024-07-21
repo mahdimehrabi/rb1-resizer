@@ -73,7 +73,7 @@ func (s *Saver) Worker() {
 			}
 			return
 		}
-		err = s.ch.Publish(s.exchange, "resize."+url.Query, false, false, amqp091.Publishing{
+		err = s.ch.Publish(s.exchange, "downloaded."+url.Query, false, false, amqp091.Publishing{
 			Body:        []byte(id),
 			ContentType: "text/plain",
 		})
