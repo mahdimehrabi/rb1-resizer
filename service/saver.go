@@ -31,7 +31,8 @@ func NewSaver(minC *minio.Client, logger *slog.Logger) *Saver {
 func (s *Saver) Worker() {
 	for msg := range s.queue {
 		reader := bytes.NewReader(msg.Body)
-		_, err := s.minC.PutObject(context.Background(), "images", uuid.New().String(), reader, int64(reader.Len()), minio.PutObjectOptions{})
+		id := uuid.New().String()
+		_, err := s.minC.PutObject(context.Background(), "images", id, reader, int64(reader.Len()), minio.PutObjectOptions{})
 		if err != nil {
 			if err := msg.Nack(false, false); err != nil {
 				s.logger.Error("failed to nack", err.Error())
@@ -40,6 +41,9 @@ func (s *Saver) Worker() {
 		}
 		if err := msg.Ack(false); err != nil {
 			s.logger.Error("failed to ack", err.Error())
+			if err := s.minC.RemoveObject(context.Background(), "images", id, minio.RemoveObjectOptions{}); err != nil {
+				s.logger.Error("failed to remove object", err.Error())
+			}
 		}
 		fmt.Println("saved successfully", time.Now().UnixNano())
 	}
