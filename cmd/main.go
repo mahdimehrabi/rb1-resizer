@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/rabbitmq/amqp091-go"
 	"log"
 	"log/slog"
@@ -18,21 +21,44 @@ func main() {
 	defer ampqConn.Close()
 	ch, err := ampqConn.Channel()
 	FatalOnError(err)
+
 	err = ch.ExchangeDeclare(env.ImageExchange, "topic", true, false, false, false, nil)
 	FatalOnError(err)
 
 	q, err := ch.QueueDeclare(env.QueueName, true, false, false, false, nil)
 	FatalOnError(err)
-	err = ch.QueueBind(q.Name, "image.", env.ImageExchange, false, nil)
-	FatalOnError(err)
+
+	for _, t := range env.ScrapTopics {
+		err = ch.QueueBind(q.Name, "scrap."+t, env.ImageExchange, false, nil)
+		FatalOnError(err)
+	}
 
 	msgs, err := ch.Consume(q.Name, "", false, false, false, false, nil)
 	FatalOnError(err)
+	minioClient, err := minio.New(env.MinioHost, &minio.Options{
+		Creds:  credentials.NewStaticV4(env.MinioAccessToken, env.MinioSecret, ""),
+		Secure: false,
+	})
+	FatalOnError(err)
+	err = minioClient.MakeBucket(context.Background(), "images", minio.MakeBucketOptions{})
+	if err != nil {
+		exists, errBucketExists := minioClient.BucketExists(context.Background(), "images")
+		if errBucketExists == nil && exists {
+			logger.Info("we already have a bucket named %s", env.ImageExchange)
+		} else {
+			log.Fatal(err)
+		}
+	}
 
-	saver := service.NewSaver()
+	saver := service.NewSaver(minioClient)
 	for msg := range msgs {
 		if err := saver.Download(msg.Body); err != nil {
 			logger.Error("error downloading", err.Error())
+			err = msg.Nack(false, false)
+			if err != nil {
+				logger.Error("error nacking", err.Error())
+			}
+			continue
 		}
 		logger.Info("downloaded successfully")
 		err = msg.Ack(false)

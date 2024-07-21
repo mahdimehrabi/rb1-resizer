@@ -13,6 +13,10 @@ func (u *URL) JSON() ([]byte, error) {
 	return json.Marshal(u)
 }
 
-func (u *URL) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, u)
+func FromJSON(data []byte) (*URL, error) {
+	var u URL
+	if err := json.Unmarshal(data, &u); err != nil {
+		return nil, err
+	}
+	return &u, nil
 }

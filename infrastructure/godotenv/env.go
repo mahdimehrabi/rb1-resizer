@@ -8,10 +8,13 @@ import (
 )
 
 type Env struct {
-	AMQP          string
-	ImageExchange string
-	ScrapTopics   []string
-	QueueName     string
+	AMQP             string
+	ImageExchange    string
+	ScrapTopics      []string
+	QueueName        string
+	MinioHost        string
+	MinioAccessToken string
+	MinioSecret      string
 }
 
 func NewEnv() *Env {
@@ -30,4 +33,7 @@ func (e *Env) Load() {
 		e.ScrapTopics = append(e.ScrapTopics, topic)
 	}
 	e.QueueName = os.Getenv("QUEUE_NAME")
+	e.MinioHost = os.Getenv("MINIO_HOST")
+	e.MinioAccessToken = os.Getenv("MINIO_ACCESS_TOKEN")
+	e.MinioSecret = os.Getenv("MINIO_SECRET")
 }
