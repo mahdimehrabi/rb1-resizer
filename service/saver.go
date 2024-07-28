@@ -78,10 +78,14 @@ func (s *Saver) Worker() {
 			}
 			return
 		}
-
+		img := entity.Image{
+			id,
+			"images",
+		}
+		image, err := img.Marshal()
 		err = s.ch.Publish(s.exchange, "downloaded."+url.Query, false, false, amqp091.Publishing{
-			Body:        []byte(id),
-			ContentType: "text/plain",
+			Body:        image,
+			ContentType: "application/json",
 		})
 
 		if err != nil {
