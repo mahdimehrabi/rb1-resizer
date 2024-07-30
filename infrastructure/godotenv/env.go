@@ -1,8 +1,8 @@
 package godotenv
 
 import (
+	"fmt"
 	"github.com/joho/godotenv"
-	"log"
 	"os"
 	"strings"
 )
@@ -23,7 +23,7 @@ func NewEnv() *Env {
 
 func (e *Env) Load() {
 	if err := godotenv.Load(".env"); err != nil {
-		log.Fatal(err)
+		fmt.Println(err.Error())
 	}
 
 	e.AMQP = os.Getenv("AMQP")

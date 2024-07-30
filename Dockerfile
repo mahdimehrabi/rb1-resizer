@@ -16,6 +16,6 @@ RUN go build -v -o ./app ./cmd
 
 FROM alpine
 COPY --from=builder /app/app .
-COPY --from=builder /app/.env .
+
 
 CMD ["./app"]
