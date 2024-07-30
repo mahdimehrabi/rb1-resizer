@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdin, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	env := godotenv.NewEnv()
 	env.Load()
 	ampqConn, err := amqp091.Dial(env.AMQP)
